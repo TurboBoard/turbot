@@ -2,5 +2,7 @@
 
 .env
 
+package-lock.json
+
 # Krukar
 to_do.txt
