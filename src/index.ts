@@ -14,6 +14,9 @@ const client = new Client({
 ==================== */
 client.on(Events.GuildCreate, async (guild: any) => {
     try {
+        // Generate an invite URL
+        const invite = await guild.invites.create(guild.systemChannel.id);
+
         // Add the guild
         await dynamo.put_item({
             TableName: 'turbot_guilds',
@@ -22,6 +25,7 @@ client.on(Events.GuildCreate, async (guild: any) => {
                 icon_url: guild.iconURL(),
                 name: guild.name,
                 active: true,
+                invite_url: invite.url,
             },
         });
     } catch {}
@@ -31,7 +35,9 @@ client.on(Events.GuildCreate, async (guild: any) => {
         const exists = guild.emojis.cache.find(({ name }) => name === 'turbot');
 
         if (!exists) await guild.emojis.create({ attachment: './src/img/emoji.png', name: 'turbot' });
-    } catch {}
+    } catch (err) {
+        console.log('err', err);
+    }
 });
 
 /* ====================
@@ -74,16 +80,18 @@ client.on(Events.MessageReactionAdd, async (reaction: any) => {
     }
 
     try {
-        // Add the post
+        const turbot_count = reaction.count > reaction.message.guild.memberCount ? reaction.message.guild.memberCount : reaction.count;
+
+        // Add the message
         await dynamo.put_item({
-            TableName: 'turbot_posts',
+            TableName: 'turbot_messages',
             Item: {
                 id: reaction.message.id,
                 guild_id: reaction.message.guildId,
                 created_at: reaction.message.createdTimestamp,
                 content: reaction.message.content,
                 author_id: reaction.message.author.id,
-                turbot_count: reaction.count,
+                turbot_count,
             },
         });
 
@@ -114,12 +122,13 @@ client.on(Events.MessageReactionRemove, async (reaction: any) => {
     }
 
     const id = reaction.message.id;
-    const turbot_count = reaction.count;
+
+    const turbot_count = reaction.count > reaction.message.guild.memberCount ? reaction.message.guild.memberCount : reaction.count;
 
     if (turbot_count === 0) {
         try {
             await dynamo.delete_item({
-                TableName: 'turbot_posts',
+                TableName: 'turbot_messages',
                 Key: {
                     id,
                 },
@@ -131,7 +140,7 @@ client.on(Events.MessageReactionRemove, async (reaction: any) => {
 
     try {
         await dynamo.put_item({
-            TableName: 'turbot_posts',
+            TableName: 'turbot_messages',
             Item: {
                 id,
                 guild_id: reaction.message.guildId,
@@ -154,9 +163,9 @@ client.on(Events.MessageUpdate, async (old_message: any, new_message: any) => {
         // TODO: Debug why sometimes it drops reactions (most likely caused by old messages not in the cache)
         if (!turbot_reaction) return;
 
-        // Update the post
+        // Update the message
         await dynamo.update_item({
-            TableName: 'turbot_posts',
+            TableName: 'turbot_messages',
             Key: {
                 id: new_message.id,
             },
@@ -165,9 +174,7 @@ client.on(Events.MessageUpdate, async (old_message: any, new_message: any) => {
                 ':content': new_message.content,
             },
         });
-    } catch (err) {
-        console.log(err);
-    }
+    } catch (err) {}
 });
 
 /* ====================
@@ -180,7 +187,7 @@ client.on(Events.MessageDelete, async (message: any) => {
         if (!turbot_reaction) return;
 
         await dynamo.delete_item({
-            TableName: 'turbot_posts',
+            TableName: 'turbot_messages',
             Key: {
                 id: message.id,
             },
