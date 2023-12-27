@@ -35,9 +35,7 @@ client.on(Events.GuildCreate, async (guild: any) => {
         const exists = guild.emojis.cache.find(({ name }) => name === 'turbot');
 
         if (!exists) await guild.emojis.create({ attachment: './src/img/emoji.png', name: 'turbot' });
-    } catch (err) {
-        console.log('err', err);
-    }
+    } catch {}
 });
 
 /* ====================
@@ -174,7 +172,7 @@ client.on(Events.MessageUpdate, async (old_message: any, new_message: any) => {
                 ':content': new_message.content,
             },
         });
-    } catch (err) {}
+    } catch {}
 });
 
 /* ====================

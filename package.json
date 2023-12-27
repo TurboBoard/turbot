@@ -1,13 +1,14 @@
 {
     "name": "turbot",
     "version": "1.0.0",
-    "description": "",
+    "description": "Turbo Board Discord Bot",
     "scripts": {
         "dev": "tsc --watch & nodemon dist",
         "tsc": "tsc"
     },
-    "author": "",
-    "license": "ISC",
+    "author": "Michael Krukar <mail@michaelkrukar.com> (http://michaelkrukar.com/)",
+    "license": "MIT",
+    "homepage": "https://turboboard.io",
     "dependencies": {
         "@aws-sdk/client-dynamodb": "^3.468.0",
         "@aws-sdk/lib-dynamodb": "^3.468.0",
