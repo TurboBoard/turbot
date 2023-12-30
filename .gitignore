@@ -5,5 +5,7 @@
 
 package-lock.json
 
+*.pem
+
 # Krukar
 to_do.txt
