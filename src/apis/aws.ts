@@ -18,6 +18,11 @@ module.exports = {
 
             return doc.send(command);
         },
+        get_item: async input => {
+            const command = new GetCommand(input);
+
+            return doc.send(command);
+        },
         put_item: async input => {
             const command = new PutCommand(input);
 

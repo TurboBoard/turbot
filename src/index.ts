@@ -1,5 +1,7 @@
 const path = require('path');
 
+import { nanoid } from 'nanoid';
+
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const { dynamo } = require('./apis/aws');
@@ -10,6 +12,12 @@ const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessageReactions],
     partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
+
+const check_if_exists = async (params: any) => {
+    const exists = await dynamo.get_item(params);
+
+    return exists.Item ? true : false;
+};
 
 /* ====================
     When the bot joins a server
@@ -82,6 +90,31 @@ client.on(Events.MessageReactionAdd, async (reaction: any) => {
     try {
         const turbot_count = reaction.count > reaction.message.guild.memberCount ? reaction.message.guild.memberCount : reaction.count;
 
+        const exists = await check_if_exists({
+            TableName: 'turbot_messages',
+            Key: {
+                id: reaction.message.id,
+            },
+        });
+
+        if (exists) {
+            // Update the count
+            await dynamo.update_item({
+                TableName: 'turbot_messages',
+                Key: {
+                    id: reaction.message.id,
+                },
+                UpdateExpression: 'set turbot_count = :turbot_count',
+                ExpressionAttributeValues: {
+                    ':turbot_count': turbot_count,
+                },
+            });
+
+            return;
+        }
+
+        const turbot_id = nanoid();
+
         // Add the message
         await dynamo.put_item({
             TableName: 'turbot_messages',
@@ -92,6 +125,7 @@ client.on(Events.MessageReactionAdd, async (reaction: any) => {
                 content: reaction.message.content,
                 author_id: reaction.message.author.id,
                 turbot_count,
+                turbot_id,
             },
         });
 
@@ -121,8 +155,6 @@ client.on(Events.MessageReactionRemove, async (reaction: any) => {
         }
     }
 
-    const id = reaction.message.id;
-
     const turbot_count = reaction.count > reaction.message.guild.memberCount ? reaction.message.guild.memberCount : reaction.count;
 
     if (turbot_count === 0) {
@@ -130,7 +162,7 @@ client.on(Events.MessageReactionRemove, async (reaction: any) => {
             await dynamo.delete_item({
                 TableName: 'turbot_messages',
                 Key: {
-                    id,
+                    id: reaction.message.id,
                 },
             });
 
@@ -139,15 +171,15 @@ client.on(Events.MessageReactionRemove, async (reaction: any) => {
     }
 
     try {
-        await dynamo.put_item({
+        // Update the count
+        await dynamo.update_item({
             TableName: 'turbot_messages',
-            Item: {
-                id,
-                guild_id: reaction.message.guildId,
-                created_at: reaction.message.createdTimestamp,
-                content: reaction.message.content,
-                author_id: reaction.message.author.id,
-                turbot_count,
+            Key: {
+                id: reaction.message.id,
+            },
+            UpdateExpression: 'set turbot_count = :turbot_count',
+            ExpressionAttributeValues: {
+                ':turbot_count': turbot_count,
             },
         });
     } catch {}
