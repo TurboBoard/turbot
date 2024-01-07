@@ -13,19 +13,16 @@ const client = new Client({
     partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
-const check_if_exists = async (params: any) => {
-    const exists = await dynamo.get_item(params);
-
-    return exists.Item ? true : false;
-};
-
 /* ====================
     When the bot joins a server
 ==================== */
 client.on(Events.GuildCreate, async (guild: any) => {
     try {
         // Generate an invite URL
-        const invite = await guild.invites.create(guild.systemChannel.id);
+        const invite = await guild.invites.create(guild.systemChannel.id, {
+            maxAge: 0,
+            maxUses: 0,
+        });
 
         // Add the guild
         await dynamo.put_item({
@@ -38,14 +35,18 @@ client.on(Events.GuildCreate, async (guild: any) => {
                 invite_url: invite.url,
             },
         });
-    } catch {}
+    } catch (err) {
+        console.log('err', err);
+    }
 
     try {
         // Add the emoji to the server
         const exists = guild.emojis.cache.find(({ name }) => name === 'turbot');
 
         if (!exists) await guild.emojis.create({ attachment: './src/img/emoji.png', name: 'turbot' });
-    } catch {}
+    } catch (err) {
+        console.log('err', err);
+    }
 });
 
 /* ====================
@@ -90,14 +91,8 @@ client.on(Events.MessageReactionAdd, async (reaction: any) => {
     try {
         const turbot_count = reaction.count > reaction.message.guild.memberCount ? reaction.message.guild.memberCount : reaction.count;
 
-        const exists = await check_if_exists({
-            TableName: 'turbot_messages',
-            Key: {
-                id: reaction.message.id,
-            },
-        });
-
-        if (exists) {
+        // If the count is greater than 1 then that means the message already exists
+        if (turbot_count > 1) {
             // Update the count
             await dynamo.update_item({
                 TableName: 'turbot_messages',
